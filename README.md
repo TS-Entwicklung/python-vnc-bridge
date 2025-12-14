@@ -5,6 +5,7 @@ Docker container to run Python CLI applications (games, scripts) with VNC access
 ## Features
 
 - 🎮 Run any Python CLI application with `.venv` support
+- 🖥️ **Lightweight LXDE Desktop Environment** - Full desktop experience optimized for ARM64
 - 🌐 Access via browser using noVNC (no VNC client needed)
 - 🎨 Full terminal color support (256 colors)
 - 🔊 Optional audio support via PulseAudio
@@ -18,12 +19,14 @@ Docker container to run Python CLI applications (games, scripts) with VNC access
 - Docker & Docker Compose
 - Python project with:
   - `__main__.py` (entry point)
-  - `.venv/` (virtual environment)
+  - `requirements.txt` (optional - automatically installs dependencies)
   - Optional: `.env` (project-specific config)
 
 **Two deployment modes:**
 1. **Volume Mount**: Mount local Python project directory
 2. **Git Clone**: Automatically clone from GitHub/GitLab on container start
+
+**Note**: The `.venv` virtual environment is created automatically on startup if it doesn't exist.
 
 ## Quick Start
 
@@ -44,6 +47,7 @@ volumes:
 
 environment:
   - VNC_PASSWORD=your_password  # Optional
+  - DEBUG=true  # Enable detailed logging (optional)
 ```
 
 3. **Start container:**
@@ -73,7 +77,11 @@ environment:
 docker-compose up -d
 ```
 
-The container will automatically clone your repository to `/app` on startup.
+The container will automatically clone your repository to `/project` on startup.
+
+**Important**:
+- Volume mounts use `/app` directory
+- Git clones use `/project` directory
 
 ### Access via Browser
 
@@ -91,6 +99,7 @@ Set these in `docker-compose.yml` or Portainer Stack environment section:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `DEBUG` | false | Enable detailed debug logging (true/false) |
 | `VNC_PASSWORD` | *(empty)* | VNC access password (optional, leave empty for no authentication) |
 | `VNC_PORT` | 5900 | VNC server port |
 | `NOVNC_PORT` | 6080 | noVNC web interface port |
@@ -99,12 +108,13 @@ Set these in `docker-compose.yml` or Portainer Stack environment section:
 | `VNC_FPS` | 15 | Frame rate (lower = better performance) |
 | `ENABLE_AUDIO` | false | Enable audio support (impacts performance) |
 | `VNC_COLOR_DEPTH` | 16 | Color depth (16 or 24 bit) |
+| `START_PYTHON_APP` | true | Auto-start Python app in desktop terminal |
 
 #### Git Clone Configuration (Alternative to Volume Mount)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GIT_REPO` | *(empty)* | Git repository URL (HTTPS). If set, clones to `/app` on startup |
+| `GIT_REPO` | *(empty)* | Git repository URL (HTTPS). If set, clones to `/project` on startup |
 | `GIT_BRANCH` | `main` | Branch to clone (optional) |
 | `GIT_USERNAME` | *(empty)* | GitHub username for private repositories (optional) |
 | `GIT_TOKEN` | *(empty)* | Personal Access Token for private repositories (optional) |
@@ -134,26 +144,34 @@ For better performance on ARM devices:
 6. **Important**: Edit the volume path in the stack editor:
    ```yaml
    volumes:
-     - /your/actual/path:/app
+     - /your/actual/path:/app  # For volume mount
    ```
 7. Deploy!
 
 ### Volume Mount Path
 
-The container expects your Python project at `/app`. You must configure the host path in `docker-compose.yml`:
+**Two directories are used depending on deployment mode:**
+
+#### Volume Mount Mode (no GIT_REPO set)
+The container expects your Python project at `/app`:
 
 ```yaml
 volumes:
   - /home/user/my-game:/app  # Host path : Container path
 ```
 
-The `/app` directory must contain:
+#### Git Clone Mode (GIT_REPO is set)
+The container clones to `/project` automatically. No volume mount needed.
+
+**Required project structure:**
 ```
-/app/
-├── __main__.py    # Required: Entry point
-├── .venv/         # Required: Python virtual environment
-└── .env           # Optional: Project-specific config
+/app/ (or /project/)
+├── __main__.py       # Required: Entry point
+├── requirements.txt  # Optional: Auto-installed on startup
+└── .env              # Optional: Project-specific config
 ```
+
+**Note**: The `.venv` directory is created automatically on first startup.
 
 ## Project Structure
 
@@ -173,17 +191,18 @@ python-vnc-bridge/
 ### No password prompt / Can't connect
 VNC password is optional. Leave `VNC_PASSWORD` empty for open access, or set it in docker-compose.yml environment section.
 
-### "/app/__main__.py not found"
-Check volume mount path in `docker-compose.yml` points to your Python project.
+### "__main__.py not found"
+- For **volume mount**: Check volume mount path in `docker-compose.yml` points to your Python project at `/app`
+- For **git clone**: Ensure your repository contains `__main__.py` in the root directory
 
-### "/app/.venv directory not found"
-Ensure your Python project has a virtual environment:
-```bash
-cd /path/to/your/game
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt  # if needed
+Enable debug mode to see detailed information:
+```yaml
+environment:
+  - DEBUG=true
 ```
+
+### Virtual environment issues
+The `.venv` is created automatically on container startup. If you have `requirements.txt`, dependencies will be installed automatically.
 
 ### Container starts but Python app doesn't run
 Check logs:
@@ -211,10 +230,11 @@ python __main__.py  # Test locally first
 
 ### Stack
 - **Base Image**: Debian Bookworm Slim
+- **Desktop Environment**: LXDE (Lightweight X11 Desktop Environment)
 - **VNC Server**: TigerVNC
 - **Web Interface**: noVNC + websockify
 - **Display**: Xvfb (virtual framebuffer)
-- **Terminal**: xterm with 256-color support
+- **Terminal**: lxterminal with 256-color support
 - **Audio**: PulseAudio (optional)
 
 ### Architecture

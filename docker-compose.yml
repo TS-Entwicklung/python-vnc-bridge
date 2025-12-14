@@ -13,6 +13,9 @@ services:
 
     # Environment variables - set these in Portainer Stack or docker-compose
     environment:
+      # Debug mode
+      - DEBUG=${DEBUG:-true}  # Set to 'false' to disable detailed logging
+
       # VNC Configuration
       - VNC_PASSWORD=${VNC_PASSWORD:-}  # Optional: Leave empty for no password
       - VNC_PORT=${VNC_PORT:-5900}
@@ -22,6 +25,7 @@ services:
       - VNC_FPS=${VNC_FPS:-15}
       - ENABLE_AUDIO=${ENABLE_AUDIO:-false}
       - VNC_COLOR_DEPTH=${VNC_COLOR_DEPTH:-16}
+      - START_PYTHON_APP=${START_PYTHON_APP:-true}  # Auto-start Python app in desktop
 
       # Git Clone Configuration (Alternative to volume mount)
       # Uncomment and configure to clone from Git repository
