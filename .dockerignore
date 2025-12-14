@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+
+# Documentation
+README.md
+WEBSITE_INTEGRATION.md
+.aiassist-commit-prompt.md
+
+# Environment
+.env
+.env.example
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+
+# macOS
+.DS_Store
+
+# Application directory (will be mounted)
+app/
+
+# Logs
+*.log
