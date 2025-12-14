@@ -1,0 +1,126 @@
+#!/bin/bash
+set -e
+
+echo "========================================"
+echo "Python VNC Bridge Starting..."
+echo "========================================"
+
+# Check if Python project exists
+if [ ! -f "/app/__main__.py" ]; then
+    echo "ERROR: /app/__main__.py not found"
+    echo "Please mount your Python project to /app volume"
+    exit 1
+fi
+
+# Check if .venv exists
+if [ ! -d "/app/.venv" ]; then
+    echo "ERROR: /app/.venv directory not found"
+    echo "Please ensure your Python project has a virtual environment"
+    exit 1
+fi
+
+# Set VNC password (optional)
+mkdir -p /root/.vnc
+if [ -n "$VNC_PASSWORD" ]; then
+    echo "VNC authentication: enabled"
+    echo "$VNC_PASSWORD" | vncpasswd -f > /root/.vnc/passwd
+    chmod 600 /root/.vnc/passwd
+    VNC_SECURITY_TYPE="VncAuth"
+else
+    echo "VNC authentication: disabled (no password)"
+    VNC_SECURITY_TYPE="None"
+fi
+
+# Set color depth (default to 16 for performance)
+VNC_COLOR_DEPTH=${VNC_COLOR_DEPTH:-16}
+
+echo "Starting Xvfb display server..."
+Xvfb $DISPLAY -screen 0 ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}x${VNC_COLOR_DEPTH} -ac &
+XVFB_PID=$!
+sleep 2
+
+# Start PulseAudio if audio is enabled
+if [ "$ENABLE_AUDIO" = "true" ]; then
+    echo "Starting PulseAudio..."
+    pulseaudio --start --exit-idle-time=-1 &
+    sleep 1
+fi
+
+echo "Starting TigerVNC server on port $VNC_PORT..."
+vncserver $DISPLAY \
+    -rfbport $VNC_PORT \
+    -geometry ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT} \
+    -depth $VNC_COLOR_DEPTH \
+    -localhost no \
+    -SecurityTypes $VNC_SECURITY_TYPE \
+    -MaxIdleTime 0 \
+    -AlwaysShared \
+    -DisconnectClients=0 &
+VNC_PID=$!
+sleep 2
+
+echo "Starting noVNC web interface on port $NOVNC_PORT..."
+websockify --web=/usr/share/novnc/ $NOVNC_PORT localhost:$VNC_PORT &
+NOVNC_PID=$!
+sleep 2
+
+# Activate Python virtual environment
+echo "Activating Python virtual environment..."
+cd /app
+source .venv/bin/activate
+
+# Get Python version
+PYTHON_VERSION=$(python --version 2>&1)
+echo "Using: $PYTHON_VERSION"
+
+# Check if .env exists in app directory
+if [ -f "/app/.env" ]; then
+    echo "Found /app/.env file (loaded by Python script)"
+fi
+
+echo "========================================"
+echo "VNC Bridge Ready!"
+echo "========================================"
+echo "Access via browser: http://localhost:$NOVNC_PORT"
+if [ -n "$VNC_PASSWORD" ]; then
+    echo "VNC Password: ******* (protected)"
+else
+    echo "VNC Password: none (open access)"
+fi
+echo "Display: ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT} @ ${VNC_FPS}fps"
+echo "Audio: $ENABLE_AUDIO"
+echo "========================================"
+echo ""
+echo "Starting Python application..."
+echo ""
+
+# Start Python application in xterm
+XTERM_CMD="cd /app && source .venv/bin/activate && python __main__.py; echo ''; echo 'Application exited. Press Ctrl+C to stop container.'; bash"
+
+xterm -maximized \
+    -fa 'Monospace' \
+    -fs 12 \
+    -bg black \
+    -fg white \
+    +sb \
+    -e bash -c "$XTERM_CMD" &
+XTERM_PID=$!
+
+# Cleanup function
+cleanup() {
+    echo ""
+    echo "Shutting down..."
+    kill $XTERM_PID 2>/dev/null || true
+    kill $NOVNC_PID 2>/dev/null || true
+    vncserver -kill $DISPLAY 2>/dev/null || true
+    kill $XVFB_PID 2>/dev/null || true
+    if [ "$ENABLE_AUDIO" = "true" ]; then
+        pulseaudio --kill 2>/dev/null || true
+    fi
+    exit 0
+}
+
+trap cleanup SIGTERM SIGINT
+
+# Keep container running
+wait $XTERM_PID
