@@ -59,12 +59,24 @@ if [ ! -f "/app/__main__.py" ]; then
     exit 1
 fi
 
-# Check if .venv exists
+# Check and create .venv if needed
 if [ ! -d "/app/.venv" ]; then
-    echo "ERROR: /app/.venv directory not found"
-    echo "Please ensure your Python project has a virtual environment"
-    echo "You can create one with: python3 -m venv .venv"
-    exit 1
+    echo "No .venv found, creating virtual environment..."
+    python3 -m venv /app/.venv
+    echo "✅ Virtual environment created"
+
+    # Install requirements if requirements.txt exists
+    if [ -f "/app/requirements.txt" ]; then
+        echo "Installing dependencies from requirements.txt..."
+        source /app/.venv/bin/activate
+        pip install --upgrade pip
+        pip install -r /app/requirements.txt
+        echo "✅ Dependencies installed"
+    else
+        echo "No requirements.txt found, skipping dependency installation"
+    fi
+else
+    echo "Virtual environment already exists at /app/.venv"
 fi
 
 # Set VNC password (optional)
