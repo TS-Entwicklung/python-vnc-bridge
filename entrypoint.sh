@@ -5,10 +5,57 @@ echo "========================================"
 echo "Python VNC Bridge Starting..."
 echo "========================================"
 
+# Git Clone Feature (optional)
+if [ -n "$GIT_REPO" ]; then
+    echo "Git repository detected: $GIT_REPO"
+
+    # Check if /app is empty (ignore hidden files for now)
+    if [ -d "/app/.git" ] || [ "$(ls -A /app 2>/dev/null | grep -v '^\.' | wc -l)" -gt 0 ]; then
+        echo "WARNING: /app is not empty, skipping clone"
+    else
+        echo "Cloning repository to /app..."
+
+        # Build Git URL with credentials if provided
+        if [ -n "$GIT_USERNAME" ] && [ -n "$GIT_TOKEN" ]; then
+            # Extract protocol and rest of URL
+            GIT_PROTOCOL=$(echo "$GIT_REPO" | grep -o '^[^:]*')
+            GIT_REST=$(echo "$GIT_REPO" | sed 's|^[^:]*://||')
+            GIT_URL_WITH_AUTH="${GIT_PROTOCOL}://${GIT_USERNAME}:${GIT_TOKEN}@${GIT_REST}"
+            echo "Using authenticated Git URL (credentials hidden)"
+        else
+            GIT_URL_WITH_AUTH="$GIT_REPO"
+            echo "Using public Git URL"
+        fi
+
+        # Clone with optional branch
+        GIT_BRANCH=${GIT_BRANCH:-main}
+        echo "Cloning branch: $GIT_BRANCH"
+
+        if git clone --branch "$GIT_BRANCH" --depth 1 "$GIT_URL_WITH_AUTH" /tmp/repo; then
+            # Move contents to /app
+            mv /tmp/repo/.git /app/
+            mv /tmp/repo/* /app/ 2>/dev/null || true
+            mv /tmp/repo/.* /app/ 2>/dev/null || true
+            rm -rf /tmp/repo
+            echo "✅ Repository cloned successfully"
+        else
+            echo "❌ ERROR: Failed to clone repository"
+            echo "Check GIT_REPO, GIT_BRANCH, and credentials"
+            exit 1
+        fi
+    fi
+else
+    echo "No GIT_REPO specified, expecting mounted volume"
+fi
+
 # Check if Python project exists
 if [ ! -f "/app/__main__.py" ]; then
     echo "ERROR: /app/__main__.py not found"
-    echo "Please mount your Python project to /app volume"
+    if [ -n "$GIT_REPO" ]; then
+        echo "Repository was cloned but does not contain __main__.py"
+    else
+        echo "Please mount your Python project to /app volume or set GIT_REPO"
+    fi
     exit 1
 fi
 
@@ -16,6 +63,7 @@ fi
 if [ ! -d "/app/.venv" ]; then
     echo "ERROR: /app/.venv directory not found"
     echo "Please ensure your Python project has a virtual environment"
+    echo "You can create one with: python3 -m venv .venv"
     exit 1
 fi
 

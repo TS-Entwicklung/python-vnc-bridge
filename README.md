@@ -8,7 +8,8 @@ Docker container to run Python CLI applications (games, scripts) with VNC access
 - 🌐 Access via browser using noVNC (no VNC client needed)
 - 🎨 Full terminal color support (256 colors)
 - 🔊 Optional audio support via PulseAudio
-- 🔒 Password-protected VNC access
+- 🔒 Password-protected VNC access (optional)
+- 🔄 **Git repository cloning on startup** (alternative to volume mount)
 - ⚡ Optimized for ARM64 (BananaPi M5)
 - 📦 Easy deployment via Portainer
 
@@ -20,47 +21,73 @@ Docker container to run Python CLI applications (games, scripts) with VNC access
   - `.venv/` (virtual environment)
   - Optional: `.env` (project-specific config)
 
+**Two deployment modes:**
+1. **Volume Mount**: Mount local Python project directory
+2. **Git Clone**: Automatically clone from GitHub/GitLab on container start
+
 ## Quick Start
 
-### 1. Clone Repository
+Choose one of two methods:
 
+### Method 1: Using Volume Mount (Local Development)
+
+1. **Clone this repository:**
 ```bash
 git clone <your-repo-url>
 cd python-vnc-bridge
 ```
 
-### 2. Edit docker-compose.yml
-
-Edit environment variables and volume mount:
-
+2. **Edit docker-compose.yml:**
 ```yaml
-environment:
-  - VNC_PASSWORD=your_secure_password  # Optional: Leave empty for no password
-  - NOVNC_PORT=6080
-  - DISPLAY_WIDTH=800
-  # ... other settings
-
 volumes:
-  - /path/to/your/python/game:/app  # <-- Edit this path
+  - /path/to/your/python/game:/app  # <-- Point to your Python project
+
+environment:
+  - VNC_PASSWORD=your_password  # Optional
 ```
 
-### 3. Start Container
-
+3. **Start container:**
 ```bash
 docker-compose up -d
 ```
 
-### 4. Access via Browser
+### Method 2: Using Git Clone (Production/Remote)
+
+1. **Edit docker-compose.yml:**
+```yaml
+# Comment out or remove volumes section
+# volumes:
+#   - ./app:/app
+
+environment:
+  - VNC_PASSWORD=your_password  # Optional
+  - GIT_REPO=https://github.com/username/your-python-game.git
+  - GIT_BRANCH=main  # Optional, defaults to main
+  # For private repos:
+  # - GIT_USERNAME=your-github-username
+  # - GIT_TOKEN=ghp_your_personal_access_token
+```
+
+2. **Start container:**
+```bash
+docker-compose up -d
+```
+
+The container will automatically clone your repository to `/app` on startup.
+
+### Access via Browser
 
 Open: `http://localhost:6080`
 
-Enter your VNC password from docker-compose environment variables.
+Enter your VNC password (if configured).
 
 ## Configuration
 
 ### Environment Variables
 
 Set these in `docker-compose.yml` or Portainer Stack environment section:
+
+#### VNC Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -72,6 +99,17 @@ Set these in `docker-compose.yml` or Portainer Stack environment section:
 | `VNC_FPS` | 15 | Frame rate (lower = better performance) |
 | `ENABLE_AUDIO` | false | Enable audio support (impacts performance) |
 | `VNC_COLOR_DEPTH` | 16 | Color depth (16 or 24 bit) |
+
+#### Git Clone Configuration (Alternative to Volume Mount)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GIT_REPO` | *(empty)* | Git repository URL (HTTPS). If set, clones to `/app` on startup |
+| `GIT_BRANCH` | `main` | Branch to clone (optional) |
+| `GIT_USERNAME` | *(empty)* | GitHub username for private repositories (optional) |
+| `GIT_TOKEN` | *(empty)* | Personal Access Token for private repositories (optional) |
+
+**Note:** If `GIT_REPO` is set, the container will clone the repository on startup instead of using volume mount.
 
 ### Performance Tuning for BananaPi M5
 

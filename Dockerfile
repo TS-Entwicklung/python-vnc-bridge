@@ -29,6 +29,8 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-venv \
     python3-pip \
+    # Git for repository cloning
+    git \
     # Utilities
     procps \
     net-tools \

@@ -6,12 +6,14 @@ services:
     container_name: python-vnc-game
     restart: unless-stopped
 
-    # Volume mount - EDIT THIS PATH to your Python game directory
+    # Volume mount - OPTIONAL if using GIT_REPO
+    # Comment out if you use GIT_REPO to clone from Git
     volumes:
       - ./app:/app  # Change './app' to your game directory path
 
     # Environment variables - set these in Portainer Stack or docker-compose
     environment:
+      # VNC Configuration
       - VNC_PASSWORD=${VNC_PASSWORD:-}  # Optional: Leave empty for no password
       - VNC_PORT=${VNC_PORT:-5900}
       - NOVNC_PORT=${NOVNC_PORT:-6080}
@@ -20,6 +22,13 @@ services:
       - VNC_FPS=${VNC_FPS:-15}
       - ENABLE_AUDIO=${ENABLE_AUDIO:-false}
       - VNC_COLOR_DEPTH=${VNC_COLOR_DEPTH:-16}
+
+      # Git Clone Configuration (Alternative to volume mount)
+      # Uncomment and configure to clone from Git repository
+      # - GIT_REPO=https://github.com/username/repo.git
+      # - GIT_BRANCH=${GIT_BRANCH:-main}  # Optional: default is 'main'
+      # - GIT_USERNAME=${GIT_USERNAME:-}  # Optional: for private repos
+      # - GIT_TOKEN=${GIT_TOKEN:-}        # Optional: GitHub Personal Access Token
 
     # Port mapping
     ports:
